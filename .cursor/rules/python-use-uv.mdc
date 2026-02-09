@@ -1,0 +1,43 @@
+---
+description: Use uv for all Python execution and dependencies in this project
+alwaysApply: true
+---
+
+# Python: Always Use uv
+
+In this project, **always use [uv](https://docs.astral.sh/uv/) for Python**—never raw `python`, `pip`, or `poetry` for running code or managing dependencies.
+
+## Running Python
+
+- **Run a script:** `uv run script.py` (or `uv run python script.py`)
+- **Run a module:** `uv run -m pytest`, `uv run -m uvicorn main:app`
+- **One-off code:** `uv run python -c "print('hello')"`
+
+Do **not** use:
+- `python script.py`
+- `python -m pytest`
+
+## Dependencies and environment
+
+- **Install/sync deps:** `uv sync` (or `uv sync --extra dev` for dev dependencies)
+- **Add a dependency:** `uv add <package>` from the project directory
+- **Add a dev dependency:** `uv add --dev <package>`
+
+Do **not** use:
+- `pip install`
+- `pip install -r requirements.txt`
+
+## Project layout
+
+- Python apps live under `server/` (and any future service dirs). Run uv commands from the relevant project root (e.g. `cd server` then `uv run ...`).
+- Each app has its own `pyproject.toml` and optional `uv.lock`; use `uv sync` in that directory before running.
+
+## Examples
+
+```bash
+# From server/
+uv sync
+uv run uvicorn main:app --reload
+uv run pytest
+uv run isort . && uv run black . && uv run flake8 .
+```

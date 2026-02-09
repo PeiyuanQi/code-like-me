@@ -1,0 +1,54 @@
+---
+description: Use FVM for all Flutter/Dart execution and dependencies in this project
+globs: "**/pubspec.yaml,**/*.dart"
+alwaysApply: false
+---
+
+# Flutter / Dart: Always Use FVM
+
+When working on a **Flutter (or Dart) project** in this repo, **use [FVM](https://fvm.app/) (Flutter Version Management)**—never raw `flutter` or `dart` for running or managing the project.
+
+## Before Flutter / Dart commands
+
+Use the project’s pinned version (from `.fvmrc` or `.fvm/flutter_sdk`), or set it once:
+
+```bash
+fvm use stable
+# or: fvm use 3.24.0
+```
+
+Then run all Flutter/Dart commands via `fvm`:
+
+- **Flutter:** `fvm flutter <args>`
+- **Dart:** `fvm dart <args>`
+
+## Dependencies and running
+
+- **Install/sync deps:** `fvm flutter pub get`
+- **Run app:** `fvm flutter run`
+- **Build:** `fvm flutter build apk` / `fvm flutter build ios` / etc.
+- **Tests:** `fvm flutter test` or `fvm dart test`
+- **Tools:** `fvm dart run <package>:executable`
+
+Do **not** use:
+- `flutter pub get`, `flutter run`, `dart test` (without `fvm`)
+
+## Project layout
+
+- Run FVM and Flutter commands from the **Flutter project root** (the directory that contains `pubspec.yaml`).
+- Ensure the project has a pinned version (e.g. `.fvmrc` or `fvm use` already run) so everyone uses the same SDK.
+
+## Examples
+
+```bash
+# From the Flutter project root (e.g. app/ or client/)
+fvm use stable
+fvm flutter pub get
+fvm flutter run
+fvm flutter test
+```
+
+```bash
+fvm flutter pub get
+fvm dart run build_runner build
+```

@@ -1,0 +1,35 @@
+---
+description: Use Node 24 via nvm before any npm operation in this project
+alwaysApply: true
+---
+
+# Node / npm: Use nvm 24
+
+When running **any Node or npm operation** in this project, **use Node 24 via nvm** first.
+
+## Before npm / yarn / pnpm
+
+Run in the shell (or ensure it’s already run in the session):
+
+```bash
+nvm use 24
+```
+
+Then run your package-manager commands as usual.
+
+## Examples
+
+```bash
+nvm use 24
+npm install
+npm run build
+npm run dev
+```
+
+```bash
+nvm use 24
+yarn install
+yarn dev
+```
+
+Do **not** run `npm install`, `npm run ...`, `yarn`, or `pnpm` without using Node 24 (e.g. `nvm use 24`) in this project.
