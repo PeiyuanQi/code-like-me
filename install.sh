@@ -1,26 +1,22 @@
 #!/usr/bin/env bash
 #
-# install.sh — Copy .claude and .cursor config from this repo to user profile,
-#             and optionally copy skills to a target project directory.
+# install.sh — Install work-like-me config into your user profile or a project.
 #
 # Usage:
-#   ./install.sh                    # install to ~/.claude and ~/.cursor only
-#   ./install.sh --skills-to /path  # also copy skills to project at /path
+#   ./install.sh                              # install Cursor rules to ~/.cursor
+#   ./install.sh --rules-to /path/to/project  # copy rules into a project
+#   ./install.sh --plugin-to /path/to/project # copy wlm plugin into a project
 #
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLAUDE_SRC="${SCRIPT_DIR}/.claude"
 CURSOR_SRC="${SCRIPT_DIR}/.cursor"
-CLAUDE_HOME="${HOME}/.claude"
+WLM_SRC="${SCRIPT_DIR}/wlm"
 CURSOR_HOME="${HOME}/.cursor"
-SKILLS_TO=""
+RULES_TO=""
+PLUGIN_TO=""
 
-# -----------------------------------------------------------------------------
-# Ask user to confirm before creating a directory. Returns 0 if dir exists or
-# user confirmed create; 1 if user declined.
-# -----------------------------------------------------------------------------
 confirm_create_dir() {
   local dir="$1"
   if [[ -d "$dir" ]]; then
@@ -35,25 +31,52 @@ confirm_create_dir() {
   return 1
 }
 
-# -----------------------------------------------------------------------------
-# Parse optional --skills-to <path>
-# -----------------------------------------------------------------------------
+sync_dir() {
+  local src="$1" dst="$2"
+  rsync -a --ignore-existing "${src}/" "${dst}/" 2>/dev/null || {
+    cp -Rn "${src}"/* "${dst}/" 2>/dev/null || true
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Parse arguments
+# ---------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --skills-to)
+    --rules-to)
       if [[ -z "${2:-}" ]]; then
-        echo "Error: --skills-to requires a path argument." >&2
+        echo "Error: --rules-to requires a path argument." >&2
         exit 1
       fi
-      SKILLS_TO="$2"
+      RULES_TO="$2"
+      shift 2
+      ;;
+    --plugin-to)
+      if [[ -z "${2:-}" ]]; then
+        echo "Error: --plugin-to requires a path argument." >&2
+        exit 1
+      fi
+      PLUGIN_TO="$2"
       shift 2
       ;;
     -h|--help)
-      echo "Usage: $0 [--skills-to <absolute-project-path>]"
-      echo ""
-      echo "  (no args)        Copy .claude and .cursor to user profile only."
-      echo "  --skills-to PATH Copy skills into project at PATH (must be absolute)."
-      echo "  -h, --help       Show this help."
+      cat <<'HELP'
+Usage: install.sh [OPTIONS]
+
+Options:
+  (no args)              Copy .cursor rules to user profile (~/.cursor).
+  --rules-to PATH        Copy .cursor/rules into the project at PATH.
+  --plugin-to PATH       Copy wlm/ plugin package into the project at PATH.
+  -h, --help             Show this help.
+
+PATH must be an absolute (system) path.
+
+Examples:
+  ./install.sh
+  ./install.sh --rules-to /Users/me/projects/my-app
+  ./install.sh --plugin-to /Users/me/projects/my-app
+  ./install.sh --rules-to /Users/me/projects/my-app --plugin-to /Users/me/projects/my-app
+HELP
       exit 0
       ;;
     *)
@@ -64,83 +87,65 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# -----------------------------------------------------------------------------
-# Validate --skills-to is an absolute path
-# -----------------------------------------------------------------------------
-if [[ -n "$SKILLS_TO" ]]; then
-  if [[ "$SKILLS_TO" != /* ]]; then
-    echo "Error: Project path must be a complete system path (absolute). Got: $SKILLS_TO" >&2
+# ---------------------------------------------------------------------------
+# Validate paths are absolute
+# ---------------------------------------------------------------------------
+for path_var in RULES_TO PLUGIN_TO; do
+  val="${!path_var}"
+  if [[ -n "$val" && "$val" != /* ]]; then
+    echo "Error: --${path_var,,} path must be absolute. Got: $val" >&2
     exit 1
   fi
-  # Existence of SKILLS_TO is checked later; we may ask to create it
-fi
+done
 
-# -----------------------------------------------------------------------------
-# Copy .claude to user profile
-# -----------------------------------------------------------------------------
-if [[ ! -d "$CLAUDE_SRC" ]]; then
-  echo "Warning: No .claude directory in repo, skipping." >&2
-else
-  echo "Installing .claude to ${CLAUDE_HOME} ..."
-  if confirm_create_dir "$CLAUDE_HOME"; then
-    rsync -a --ignore-existing "${CLAUDE_SRC}/" "${CLAUDE_HOME}/" 2>/dev/null || {
-      cp -R "${CLAUDE_SRC}"/* "${CLAUDE_HOME}/" 2>/dev/null || true
-    }
-    echo "  done."
-  else
-    echo "  Skipping .claude (directory not created)."
+# ---------------------------------------------------------------------------
+# Default: install Cursor rules to user profile
+# ---------------------------------------------------------------------------
+if [[ -z "$RULES_TO" && -z "$PLUGIN_TO" ]]; then
+  if [[ ! -d "$CURSOR_SRC" ]]; then
+    echo "Warning: No .cursor directory in repo, nothing to install." >&2
+    exit 0
   fi
-fi
-
-# -----------------------------------------------------------------------------
-# Copy .cursor to user profile
-# -----------------------------------------------------------------------------
-if [[ ! -d "$CURSOR_SRC" ]]; then
-  echo "Warning: No .cursor directory in repo, skipping." >&2
-else
-  echo "Installing .cursor to ${CURSOR_HOME} ..."
+  echo "Installing .cursor rules to ${CURSOR_HOME} ..."
   if confirm_create_dir "$CURSOR_HOME"; then
-    rsync -a --ignore-existing "${CURSOR_SRC}/" "${CURSOR_HOME}/" 2>/dev/null || {
-      cp -R "${CURSOR_SRC}"/* "${CURSOR_HOME}/" 2>/dev/null || true
-    }
+    sync_dir "$CURSOR_SRC" "$CURSOR_HOME"
     echo "  done."
   else
-    echo "  Skipping .cursor (directory not created)."
+    echo "  Skipped (directory not created)."
   fi
 fi
 
-# -----------------------------------------------------------------------------
-# Optional: copy skills to target project
-# -----------------------------------------------------------------------------
-if [[ -n "$SKILLS_TO" ]]; then
-  if ! confirm_create_dir "$SKILLS_TO"; then
-    echo "Skipping skills copy (project directory not created)."
+# ---------------------------------------------------------------------------
+# --rules-to: copy .cursor/rules into a project
+# ---------------------------------------------------------------------------
+if [[ -n "$RULES_TO" ]]; then
+  if [[ ! -d "${CURSOR_SRC}/rules" ]]; then
+    echo "Warning: No .cursor/rules in repo, skipping rules." >&2
   else
-    echo "Copying skills to project: ${SKILLS_TO} ..."
-    if [[ -d "${CLAUDE_SRC}/skills" ]]; then
-      if confirm_create_dir "${SKILLS_TO}/.claude/skills"; then
-        rsync -a "${CLAUDE_SRC}/skills/" "${SKILLS_TO}/.claude/skills/" 2>/dev/null || {
-          cp -R "${CLAUDE_SRC}/skills"/* "${SKILLS_TO}/.claude/skills/" 2>/dev/null || true
-        }
-        echo "  .claude/skills installed."
-      else
-        echo "  Skipping .claude/skills (directory not created)."
-      fi
+    echo "Copying Cursor rules to ${RULES_TO} ..."
+    if confirm_create_dir "${RULES_TO}/.cursor/rules"; then
+      sync_dir "${CURSOR_SRC}/rules" "${RULES_TO}/.cursor/rules"
+      echo "  done."
+    else
+      echo "  Skipped (directory not created)."
     fi
-    if [[ -d "${CURSOR_SRC}/skills" ]]; then
-      if confirm_create_dir "${SKILLS_TO}/.cursor/skills"; then
-        rsync -a "${CURSOR_SRC}/skills/" "${SKILLS_TO}/.cursor/skills/" 2>/dev/null || {
-          cp -R "${CURSOR_SRC}/skills"/* "${SKILLS_TO}/.cursor/skills/" 2>/dev/null || true
-        }
-        echo "  .cursor/skills installed."
-      else
-        echo "  Skipping .cursor/skills (directory not created)."
-      fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# --plugin-to: copy wlm/ plugin package into a project
+# ---------------------------------------------------------------------------
+if [[ -n "$PLUGIN_TO" ]]; then
+  if [[ ! -d "$WLM_SRC" ]]; then
+    echo "Warning: No wlm/ directory in repo, skipping plugin." >&2
+  else
+    echo "Copying wlm plugin to ${PLUGIN_TO} ..."
+    if confirm_create_dir "${PLUGIN_TO}/wlm"; then
+      sync_dir "$WLM_SRC" "${PLUGIN_TO}/wlm"
+      echo "  done."
+    else
+      echo "  Skipped (directory not created)."
     fi
-    if [[ ! -d "${CLAUDE_SRC}/skills" ]] && [[ ! -d "${CURSOR_SRC}/skills" ]]; then
-      echo "  (no skills in this repo to copy)"
-    fi
-    echo "  done."
   fi
 fi
 
