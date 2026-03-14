@@ -8,6 +8,11 @@
       "name": "swe",
       "source": "./plugins/swe",
       "description": "Software Engineer skills"
+    },
+    {
+      "name": "worker",
+      "source": "./plugins/worker",
+      "description": "Daily worker skills for general productivity"
     }
   ]
 }

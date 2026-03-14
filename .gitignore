@@ -40,3 +40,10 @@ venv/
 # Logs
 logs/
 *.log
+
+# Agent related
+memory/
+agent-notes/
+agent-workflows/
+agentops/
+agent-workspaces/
